@@ -1,16 +1,21 @@
-
-FROM maven:3.9.5-openjdk-21-slim AS builder
+# Etap budowania aplikacji
+FROM maven:3.9.5-eclipse-temurin-21 AS builder
 
 WORKDIR /app
 
 COPY . .
+RUN mvn clean package -DskipTests
 
-RUN mvn clean verify
-
-FROM openjdk:21-jdk-slim
+# Etap uruchamiania aplikacji
+FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-COPY --from=builder /app/target/company-crud-0.0.1-SNAPSHOT.jar app.jar
+# Instalacja konkretnej wersji Netcat
+RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY --from=builder /app/target/*.jar app.jar
+COPY wait-for-it.sh /app/wait-for-it.sh
+RUN chmod +x /app/wait-for-it.sh
+
+ENTRYPOINT ["./wait-for-it.sh", "postgres", "5433", "--", "java", "-jar", "app.jar"]
